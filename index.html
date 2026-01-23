@@ -156,7 +156,12 @@
 		const formData = new FormData();
 		formData.append("image", file);
 
-		const res = await fetch("https://cold-mode-7357.mann965.workers.dev/", {
+		/* const res = await fetch("https://cold-mode-7357.mann965.workers.dev/", {
+			method: "POST",
+			body: formData
+		}); */
+
+		const res = await fetch("geminin-image-ai.vercel.app/api/image-edit", {
 			method: "POST",
 			body: formData
 		});
@@ -174,6 +179,7 @@
 
 </body>
 </html>
+
 
 
 
