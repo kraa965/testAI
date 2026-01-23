@@ -1,182 +1,177 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-	<meta charset="UTF-8" />
-	<title>Gemini AI Редактор Изображений</title>
+<meta charset="UTF-8" />
+<title>Gemini AI Редактор Изображений</title>
 
-	<style>
-      * { box-sizing: border-box; }
+<style>
+* { box-sizing: border-box; }
 
-      body {
-          font-family: Inter, Arial, sans-serif;
-          /*background: linear-gradient(180deg, #0b1020, #0a0f2c);
-          color: white;
-          padding: 40px;*/
-          text-align: center;
-      }
+body {
+  font-family: Inter, Arial, sans-serif;
+  text-align: center;
+}
 
-      h2 {
-          font-size: 28px;
-          font-weight: 600;
-          margin-bottom: 20px;
-      }
+#imageFile { display: none; }
 
-      /* скрытый input */
-      #imageFile {
-          display: none;
-      }
+.container {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-top: 30px;
+}
 
-      /* Layout */
-      .container {
-          display: flex;
-          justify-content: center;
-          gap: 40px;
-          margin-top: 30px;
-      }
+.box {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  padding: 20px;
+  width: 360px;
+  border: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  position: relative;
+  cursor: pointer;
+}
 
-      /* Card */
-      .box {
-          background: rgba(255,255,255,0.05);
-          backdrop-filter: blur(10px);
-          border-radius: 18px;
-          padding: 20px;
-          width: 360px;
-          border: 1px solid rgba(255,255,255,0.15);
-          box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-          position: relative;
-          cursor: pointer;
-          transition: 0.2s;
-      }
+img {
+  width: 320px;
+  height: 320px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: black;
+}
 
-      /*.box:hover {
-          border-color: #00ffff;
-          transform: translateY(-4px);
-      }*/
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: rgba(0,0,0,0.4);
+  font-size: 16px;
+  pointer-events: none;
+}
 
-      /* Title */
-      .box h3 {
-          margin-bottom: 10px;
-          font-weight: 500;
-      }
+.processing {
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.3),
+              0 0 80px rgba(0, 128, 255, 0.2);
+}
 
-      /* Images */
-      img {
-          width: 320px;
-          height: 320px;
-          object-fit: cover;
-          border-radius: 12px;
-          background: black;
-      }
+#loading {
+  margin-top: 15px;
+  font-size: 16px;
+  display: none;
+}
 
-      /* Placeholder text */
-      .placeholder {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          color: rgba(255,255,255,0.4);
-          font-size: 16px;
-          pointer-events: none;
-      }
-
-      /* AI glow */
-      .processing {
-          box-shadow: 0 0 30px rgba(0, 255, 255, 0.3),
-          0 0 80px rgba(0, 128, 255, 0.2);
-      }
-
-      /* Loading */
-      #loading {
-          margin-top: 15px;
-          font-size: 16px;
-          color: black;
-          display: none;
-          animation: pulse 1.5s infinite;
-      }
-
-      @keyframes pulse {
-          0%,100% { opacity: 0.2; }
-          50% { opacity: 1; }
-      }
-	</style>
+#timer {
+  font-size: 18px;
+  font-weight: bold;
+  margin-top: 5px;
+}
+</style>
 </head>
+
 <body>
 
 <input type="file" id="imageFile" accept="image/*">
 
-<div id="loading">Улучшаем ваши зубы…</div>
+<div id="loading">
+  Улучшаем ваши зубы…  
+  <div id="timer">0.00 s</div>
+</div>
 
 <div class="container">
 
-	<!-- ORIGINAL -->
-	<div class="box" id="uploadBox">
-		<h3>Оригинал (нажмите для загрузки)</h3>
-		<img id="preview">
-		<div class="placeholder" id="placeholder">Нажмите здесь, чтобы загрузить фото</div>
-	</div>
+  <div class="box" id="uploadBox">
+    <h3>Оригинал (нажмите для загрузки)</h3>
+    <img id="preview">
+    <div class="placeholder" id="placeholder">Нажмите для загрузки</div>
+  </div>
 
-	<!-- RESULT -->
-	<div class="box" id="resultBox">
-		<h3>Результат после лечения</h3>
-		<img id="result">
-	</div>
+  <div class="box" id="resultBox">
+    <h3>Результат после лечения</h3>
+    <img id="result">
+  </div>
 
 </div>
 
 <script>
-	const fileInput = document.getElementById("imageFile");
-	const uploadBox = document.getElementById("uploadBox");
-	const previewImg = document.getElementById("preview");
-	const resultImg = document.getElementById("result");
-	const loading = document.getElementById("loading");
-	const resultBox = document.getElementById("resultBox");
-	const placeholder = document.getElementById("placeholder");
+const fileInput = document.getElementById("imageFile");
+const uploadBox = document.getElementById("uploadBox");
+const previewImg = document.getElementById("preview");
+const resultImg = document.getElementById("result");
+const loading = document.getElementById("loading");
+const resultBox = document.getElementById("resultBox");
+const placeholder = document.getElementById("placeholder");
+const timerEl = document.getElementById("timer");
 
-	// Клик по карточке = открыть файл
-	uploadBox.onclick = () => fileInput.click();
+let timerInterval = null;
+let startTime = 0;
 
-	// При выборе файла
-	fileInput.onchange = async () => {
-		const file = fileInput.files[0];
-		if (!file) return;
+// открыть файл
+uploadBox.onclick = () => fileInput.click();
 
-		// показать оригинал
-		const reader = new FileReader();
-		reader.onload = e => {
-			previewImg.src = e.target.result;
-			placeholder.style.display = "none";
-		};
-		reader.readAsDataURL(file);
+fileInput.onchange = async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
 
-		// AI магия
-		loading.style.display = "block";
-		resultBox.classList.add("processing");
+  // preview
+  previewImg.src = URL.createObjectURL(file);
+  placeholder.style.display = "none";
 
-		const formData = new FormData();
-		formData.append("image", file);
+  // === COMPRESS IMAGE ===
+  const img = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024;
+  canvas.height = img.height * 1024 / img.width;
+  canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
 
-		const res = await fetch("https://geminin-image-ai.vercel.app/api/image", {
-			method: "POST",
-			body: formData
-		});
+  const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.8));
 
-		const data = await res.json();
+  const formData = new FormData();
+  formData.append("image", blob, "photo.jpg");
 
-		if (data.imageBase64) {
-			resultImg.src = data.imageBase64;
-		}
+  // === START TIMER ===
+  loading.style.display = "block";
+  resultBox.classList.add("processing");
 
-		loading.style.display = "none";
-		resultBox.classList.remove("processing");
-	};
+  startTime = performance.now();
+  timerEl.textContent = "0.00 s";
+
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const t = (performance.now() - startTime) / 1000;
+    timerEl.textContent = t.toFixed(2) + " s";
+  }, 50);
+
+  // === FETCH AI ===
+  try {
+    const res = await fetch("https://geminin-image-ai.vercel.app/api/image", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await res.json();
+
+    if (data.imageBase64) {
+      resultImg.src = data.imageBase64;
+    } else {
+      alert("Ошибка AI: " + JSON.stringify(data));
+    }
+
+  } catch (err) {
+    alert("Ошибка сети: " + err);
+  }
+
+  // === STOP TIMER ===
+  clearInterval(timerInterval);
+  const totalTime = (performance.now() - startTime) / 1000;
+  timerEl.textContent = "Готово за " + totalTime.toFixed(2) + " s";
+
+  loading.style.display = "none";
+  resultBox.classList.remove("processing");
+};
 </script>
 
 </body>
 </html>
-
-
-
-
-
-
