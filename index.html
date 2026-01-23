@@ -10,6 +10,8 @@
 body {
   font-family: Inter, Arial, sans-serif;
   text-align: center;
+  background: #f6f7fb;
+  padding: 40px;
 }
 
 #imageFile { display: none; }
@@ -22,15 +24,20 @@ body {
 }
 
 .box {
-  background: rgba(255,255,255,0.05);
-  backdrop-filter: blur(10px);
-  border-radius: 18px;
+  background: white;
+  border-radius: 16px;
   padding: 20px;
   width: 360px;
-  border: 1px solid rgba(255,255,255,0.15);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  border: 1px solid #ddd;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
   position: relative;
   cursor: pointer;
+  transition: 0.2s;
+}
+
+.box:hover {
+  border-color: #00aaff;
+  transform: translateY(-2px);
 }
 
 img {
@@ -38,7 +45,7 @@ img {
   height: 320px;
   object-fit: cover;
   border-radius: 12px;
-  background: black;
+  background: #000;
 }
 
 .placeholder {
@@ -47,26 +54,26 @@ img {
   display: flex;
   justify-content: center;
   align-items: center;
-  color: rgba(0,0,0,0.4);
+  color: #888;
   font-size: 16px;
   pointer-events: none;
 }
 
 .processing {
-  box-shadow: 0 0 30px rgba(0, 255, 255, 0.3),
-              0 0 80px rgba(0, 128, 255, 0.2);
+  box-shadow: 0 0 30px rgba(0, 150, 255, 0.3);
 }
 
 #loading {
-  margin-top: 15px;
+  margin-top: 20px;
   font-size: 16px;
   display: none;
 }
 
 #timer {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: bold;
-  margin-top: 5px;
+  color: #0077ff;
+  margin-top: 6px;
 }
 </style>
 </head>
@@ -77,7 +84,7 @@ img {
 
 <div id="loading">
   Улучшаем ваши зубы…  
-  <div id="timer">0.00 s</div>
+  <div id="timer">00:00</div>
 </div>
 
 <div class="container">
@@ -107,19 +114,48 @@ const timerEl = document.getElementById("timer");
 
 let timerInterval = null;
 let startTime = 0;
+let busy = false;
 
-// открыть файл
-uploadBox.onclick = () => fileInput.click();
+// формат мм:сс
+function formatTime(ms) {
+  const total = Math.floor(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+}
 
+function startTimer() {
+  startTime = performance.now();
+  timerEl.textContent = "00:00";
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timerEl.textContent = formatTime(performance.now() - startTime);
+  }, 200);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  timerEl.textContent = "Время: " + formatTime(performance.now() - startTime);
+}
+
+// открыть загрузку
+uploadBox.onclick = () => {
+  if (!busy) fileInput.click();
+};
+
+// загрузка файла
 fileInput.onchange = async () => {
+  if (busy) return;
   const file = fileInput.files[0];
   if (!file) return;
+
+  busy = true;
 
   // preview
   previewImg.src = URL.createObjectURL(file);
   placeholder.style.display = "none";
 
-  // === COMPRESS IMAGE ===
+  // === СЖАТИЕ ===
   const img = await createImageBitmap(file);
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
@@ -131,20 +167,11 @@ fileInput.onchange = async () => {
   const formData = new FormData();
   formData.append("image", blob, "photo.jpg");
 
-  // === START TIMER ===
+  // UI start
   loading.style.display = "block";
   resultBox.classList.add("processing");
+  startTimer();
 
-  startTime = performance.now();
-  timerEl.textContent = "0.00 s";
-
-  clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    const t = (performance.now() - startTime) / 1000;
-    timerEl.textContent = t.toFixed(2) + " s";
-  }, 50);
-
-  // === FETCH AI ===
   try {
     const res = await fetch("https://geminin-image-ai.vercel.app/api/image", {
       method: "POST",
@@ -156,20 +183,17 @@ fileInput.onchange = async () => {
     if (data.imageBase64) {
       resultImg.src = data.imageBase64;
     } else {
-      alert("Ошибка AI: " + JSON.stringify(data));
+      alert("Ошибка AI:\n" + JSON.stringify(data));
     }
 
   } catch (err) {
     alert("Ошибка сети: " + err);
   }
 
-  // === STOP TIMER ===
-  clearInterval(timerInterval);
-  const totalTime = (performance.now() - startTime) / 1000;
-  timerEl.textContent = "Готово за " + totalTime.toFixed(2) + " s";
-
-  loading.style.display = "none";
+  // UI stop
+  stopTimer();
   resultBox.classList.remove("processing");
+  busy = false;
 };
 </script>
 
