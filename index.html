@@ -1,202 +1,396 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<title>Gnatone Mirror AI</title>
+	<meta charset="UTF-8" />
+	<title>Gnatone Mirror AI</title>
 
-<style>
-* { box-sizing: border-box; }
+	<style>
+      * { box-sizing: border-box; }
 
-body {
-  font-family: Inter, Arial, sans-serif;
-  text-align: center;
-  background: #f6f7fb;
-  padding: 40px;
-}
+      body {
+          font-family: Inter, Arial, sans-serif;
+          background: #f6f7fb;
+          text-align: center;
+          padding: 40px;
+      }
 
-#imageFile { display: none; }
+      h2 {
+          font-size: 28px;
+          margin-bottom: 5px;
+          font-weight: 700;
+      }
 
-.container {
-  display: flex;
-  justify-content: center;
-  gap: 40px;
-  margin-top: 30px;
-}
+      #imageFile { display: none; }
 
-.box {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  width: 360px;
-  border: 1px solid #ddd;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-  position: relative;
-  cursor: pointer;
-  transition: 0.2s;
-}
+      /* MAIN UPLOAD BOX */
+      .main-box {
+          width: 520px;
+          margin: 30px auto;
+          background: white;
+          border-radius: 20px;
+          padding: 16px;
+          border: 2px dashed #aaa;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+          cursor: pointer;
+          transition: 0.2s;
+      }
 
-.box:hover {
-  border-color: #00aaff;
-  transform: translateY(-2px);
-}
+      /*.main-box:hover {
+          border-color: #0077ff;
+          transform: translateY(-2px);
+      }*/
 
-img {
-  width: 320px;
-  height: 320px;
-  object-fit: cover;
-  border-radius: 12px;
-  background: #000;
-}
+      /* IMAGE AREA */
+      .compare-container {
+          position: relative;
+          width: 480px;
+          height: 480px;
+          border-radius: 16px;
+          overflow: hidden;
+          background: #000;
+          margin: auto;
+      }
 
-.placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #888;
-  font-size: 16px;
-  pointer-events: none;
-}
+      .compare-container img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: none;
+      }
 
-.processing {
-  box-shadow: 0 0 30px rgba(0, 150, 255, 0.3);
-}
+      /* PLACEHOLDER */
+      .placeholder {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          font-size: 18px;
+          color: #666;
+          background: rgba(255,255,255,0.95);
+          text-align: center;
+          padding: 20px;
+      }
 
-#loading {
-  margin-top: 20px;
-  font-size: 16px;
-  display: none;
-}
+      /* SLIDER */
+      #afterImg {
+          clip-path: inset(0 0 0 50%); /* AI справа */
+      }
 
-#timer {
-  font-size: 22px;
-  font-weight: bold;
-  color: #0077ff;
-  margin-top: 6px;
-}
-</style>
+      #slider {
+          position: absolute;
+          top: 0;
+          left: 50%;
+          width: 2px;
+          height: 100%;
+          background: rgba(255,255,255,0.9);
+          backdrop-filter: blur(4px);
+          box-shadow: 0 0 15px rgba(0,0,0,0.6);
+          cursor: ew-resize;
+          display: none;
+      }
+
+      #slider::before {
+          content: "⇆";
+          position: absolute;
+          top: 50%;
+          left: -22px;
+          width: 44px;
+          height: 44px;
+          background: rgba(0,119,255,0.95);
+          border-radius: 50%;
+          border: 3px solid white;
+          transform: translateY(-50%);
+          color: white;
+          font-size: 18px;
+          font-weight: bold;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+          transition: 0.2s;
+      }
+
+      #slider:hover::before {
+          transform: translateY(-50%) scale(1.15);
+      }
+
+      /* Disable selection & dragging for slider images */
+      .compare-container,
+      .compare-container * {
+          user-select: none;
+          -webkit-user-select: none;
+          -ms-user-select: none;
+          -moz-user-select: none;
+
+          -webkit-user-drag: none;
+          user-drag: none;
+          pointer-events: none;
+      }
+
+      /* Но slider должен ловить события */
+      #slider {
+          pointer-events: auto !important;
+      }
+
+
+
+      /* STATUS */
+      #loading {
+          margin-top: 12px;
+          font-size: 16px;
+          display: none;
+      }
+
+      #statusText {
+          font-weight: bold;
+          font-size: 17px;
+          color: #0077ff;
+          animation: blink 1.8s infinite;
+      }
+
+      @keyframes blink {
+          0%,100% { opacity: 0.2; }
+          50% { opacity: 1; }
+      }
+
+      /* TIMER */
+      #timer {
+          font-size: 20px;
+          font-weight: bold;
+          color: #0077ff;
+      }
+
+      /* DOWNLOAD */
+      #downloadBtn {
+          margin-top: 14px;
+          padding: 10px 22px;
+          border: none;
+          border-radius: 8px;
+          background: #0077ff;
+          color: white;
+          font-weight: bold;
+          cursor: pointer;
+          display: none;
+      }
+
+      #downloadBtn:hover {
+          background: #005ccc;
+      }
+	</style>
 </head>
 
 <body>
 
+<h2>Gnatone Mirror AI</h2>
+
 <input type="file" id="imageFile" accept="image/*">
 
+<div class="main-box" id="uploadBox">
+	<div class="compare-container" id="compareBox">
+		<img id="beforeImg">
+		<img id="afterImg">
+		<div id="slider"></div>
+		<div class="placeholder" id="placeholder">
+			📸 Нажмите или перетащите фото
+		</div>
+	</div>
+</div>
+
 <div id="loading">
-  Улучшаем ваши зубы…  
-  <div id="timer">00:00</div>
+	<div id="statusText">Лечим зубы…</div>
+	<div id="timer">00:00</div>
 </div>
 
-<div class="container">
-
-  <div class="box" id="uploadBox">
-    <h3>Оригинал (нажмите для загрузки)</h3>
-    <img id="preview">
-    <div class="placeholder" id="placeholder">Нажмите для загрузки</div>
-  </div>
-
-  <div class="box" id="resultBox">
-    <h3>Результат после лечения</h3>
-    <img id="result">
-  </div>
-
-</div>
+<button id="downloadBtn">⬇ Скачать результат</button>
 
 <script>
-const fileInput = document.getElementById("imageFile");
-const uploadBox = document.getElementById("uploadBox");
-const previewImg = document.getElementById("preview");
-const resultImg = document.getElementById("result");
-const loading = document.getElementById("loading");
-const resultBox = document.getElementById("resultBox");
-const placeholder = document.getElementById("placeholder");
-const timerEl = document.getElementById("timer");
+	const fileInput = document.getElementById("imageFile");
+	const uploadBox = document.getElementById("uploadBox");
+	const compareBox = document.getElementById("compareBox");
+	const beforeImg = document.getElementById("beforeImg");
+	const afterImg = document.getElementById("afterImg");
+	const slider = document.getElementById("slider");
+	const placeholder = document.getElementById("placeholder");
+	const loading = document.getElementById("loading");
+	const statusText = document.getElementById("statusText");
+	const timerEl = document.getElementById("timer");
+	const downloadBtn = document.getElementById("downloadBtn");
 
-let timerInterval = null;
-let startTime = 0;
-let busy = false;
+	let isDraggingSlider = false;
+	let suppressUploadClick = false;
 
-// формат мм:сс
-function formatTime(ms) {
-  const total = Math.floor(ms / 1000);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
-}
 
-function startTimer() {
-  startTime = performance.now();
-  timerEl.textContent = "00:00";
-  clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    timerEl.textContent = formatTime(performance.now() - startTime);
-  }, 200);
-}
+	beforeImg.draggable = false;
+	afterImg.draggable = false;
 
-function stopTimer() {
-  clearInterval(timerInterval);
-  timerEl.textContent = "Время: " + formatTime(performance.now() - startTime);
-}
+	beforeImg.addEventListener("dragstart", e => e.preventDefault());
+	afterImg.addEventListener("dragstart", e => e.preventDefault());
 
-// открыть загрузку
-uploadBox.onclick = () => {
-  if (!busy) fileInput.click();
-};
 
-// загрузка файла
-fileInput.onchange = async () => {
-  if (busy) return;
-  const file = fileInput.files[0];
-  if (!file) return;
+	let timerInterval, startTime, busy = false;
 
-  busy = true;
+	// ===== TIME FORMAT mm:ss =====
+	function formatTime(ms) {
+		const t = Math.floor(ms / 1000);
+		return String(Math.floor(t/60)).padStart(2,"0") + ":" + String(t%60).padStart(2,"0");
+	}
 
-  // preview
-  previewImg.src = URL.createObjectURL(file);
-  placeholder.style.display = "none";
+	function startTimer() {
+		startTime = performance.now();
+		timerEl.textContent = "00:00";
+		clearInterval(timerInterval);
+		timerInterval = setInterval(() => {
+			timerEl.textContent = formatTime(performance.now() - startTime);
+		}, 200);
+	}
 
-  // === СЖАТИЕ ===
-  const img = await createImageBitmap(file);
-  const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = img.height * 1024 / img.width;
-  canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+	function stopTimer() {
+		clearInterval(timerInterval);
+		timerEl.textContent = "Время: " + formatTime(performance.now() - startTime);
+	}
 
-  const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.8));
+	// CLICK UPLOAD
+	uploadBox.addEventListener("click", e => {
+		if (busy || isDraggingSlider || suppressUploadClick) return;
+		fileInput.click();
+	});
 
-  const formData = new FormData();
-  formData.append("image", blob, "photo.jpg");
 
-  // UI start
-  loading.style.display = "block";
-  resultBox.classList.add("processing");
-  startTimer();
+	// DRAG DROP
+	uploadBox.ondragover = e => { e.preventDefault(); uploadBox.style.borderColor="#0077ff"; };
+	uploadBox.ondragleave = () => uploadBox.style.borderColor="#aaa";
+	uploadBox.ondrop = e => {
+		e.preventDefault();
+		uploadBox.style.borderColor="#aaa";
+		fileInput.files = e.dataTransfer.files;
+		fileInput.onchange();
+	};
 
-  try {
-    const res = await fetch("https://geminin-image-ai.vercel.app/api/image", {
-      method: "POST",
-      body: formData
-    });
+	// FILE HANDLER
+	fileInput.onchange = async () => {
+		if (busy) return;
+		const file = fileInput.files[0];
+		if (!file) return;
 
-    const data = await res.json();
+		busy = true;
+		slider.style.display = "none";
+		downloadBtn.style.display = "none";
+		placeholder.style.display = "none";
 
-    if (data.imageBase64) {
-      resultImg.src = data.imageBase64;
-    } else {
-      alert("Ошибка AI:\n" + JSON.stringify(data));
-    }
+		// show original
+		const url = URL.createObjectURL(file);
+		beforeImg.src = url;
+		beforeImg.style.display = "block";
+		afterImg.style.display = "none";
 
-  } catch (err) {
-    alert("Ошибка сети: " + err);
-  }
+		// compress
+		const img = await createImageBitmap(file);
+		const canvas = document.createElement("canvas");
+		canvas.width = 1024;
+		canvas.height = img.height * 1024 / img.width;
+		canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+		const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.8));
 
-  // UI stop
-  stopTimer();
-  resultBox.classList.remove("processing");
-  busy = false;
-};
+		const formData = new FormData();
+		formData.append("image", blob, "photo.jpg");
+
+		// UI start
+		loading.style.display = "block";
+		startTimer();
+
+		try {
+			const res = await fetch("https://geminin-image-ai.vercel.app/api/image", {
+				method: "POST",
+				body: formData
+			});
+			const data = await res.json();
+
+			if (data.imageBase64) {
+				afterImg.src = data.imageBase64;
+				afterImg.style.display = "block";
+				slider.style.display = "block";
+				downloadBtn.style.display = "inline-block";
+
+				// ✅ AI finished
+				statusText.style.display = "none";
+
+				downloadBtn.onclick = () => {
+					const a = document.createElement("a");
+					a.href = data.imageBase64;
+					a.download = "gnatone_result.jpg";
+					a.click();
+				};
+			} else {
+				alert("AI error");
+				// alert("AI error: " + JSON.stringify(data));
+			}
+
+		} catch (e) {
+			alert("Network error: " + e);
+		}
+
+		stopTimer();
+		busy = false;
+	};
+
+	// SLIDER (mouse + touch)
+	let dragging = false;
+
+	function moveSlider(x) {
+		const rect = compareBox.getBoundingClientRect();
+		x = Math.max(0, Math.min(x - rect.left, rect.width));
+		const p = (x / rect.width) * 100;
+		slider.style.left = p + "%";
+		afterImg.style.clipPath = `inset(0 0 0 ${p}%)`;
+	}
+
+	// mouse
+	slider.addEventListener("mousedown", e => {
+		dragging = true;
+		isDraggingSlider = true;
+		suppressUploadClick = true;
+		e.stopPropagation();
+		e.preventDefault();
+	});
+
+	window.addEventListener("mouseup", () => {
+		dragging = false;
+		setTimeout(() => {
+			isDraggingSlider = false;
+			suppressUploadClick = false;
+		}, 100);
+	});
+
+	window.addEventListener("mousemove", e => {
+		if (dragging) moveSlider(e.clientX);
+	});
+
+	// touch
+	slider.addEventListener("touchstart", e => {
+		dragging = true;
+		isDraggingSlider = true;
+		suppressUploadClick = true;
+		e.stopPropagation();
+		e.preventDefault();
+	});
+
+	window.addEventListener("touchend", () => {
+		dragging = false;
+		setTimeout(() => {
+			isDraggingSlider = false;
+			suppressUploadClick = false;
+		}, 100);
+	});
+
+	window.addEventListener("touchmove", e => {
+		if (dragging) moveSlider(e.touches[0].clientX);
+	});
+
+
 </script>
 
 </body>
 </html>
-
