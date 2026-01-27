@@ -119,7 +119,7 @@
 
       /* Disable selection & dragging for slider images */
       .compare-container,
-      .compare-container * {
+      .compare-container img {
           user-select: none;
           -webkit-user-select: none;
           -ms-user-select: none;
@@ -129,6 +129,40 @@
           user-drag: none;
           pointer-events: none;
       }
+
+      .shade-panel {
+          width: 520px;
+          margin: 20px auto;
+          display: none;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+          gap: 10px;
+      }
+
+      .shade-item {
+          background: white;
+          border-radius: 10px;
+          padding: 6px;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+          text-align: center;
+          font-size: 12px;
+          cursor: pointer;
+          border: 2px solid transparent;
+      }
+
+      .shade-item img {
+          width: 100%;
+          border-radius: 6px;
+      }
+
+      .shade-item input {
+          margin-top: 4px;
+      }
+
+      .shade-item.selected {
+          border-color: #0077ff;
+      }
+
 
       /* Но slider должен ловить события */
       #slider {
@@ -169,16 +203,78 @@
           padding: 10px 22px;
           border: none;
           border-radius: 8px;
-          background: #0077ff;
-          color: white;
+          background: #00ff59;
+          color: black;
           font-weight: bold;
           cursor: pointer;
           display: none;
       }
 
       #downloadBtn:hover {
-          background: #005ccc;
+          color: black;
+          background: #018b2c;
       }
+
+      #sendBtn {
+          margin-top: 16px;
+          padding: 14px 36px;
+          border: none;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #0077ff, #00c6ff);
+          color: white;
+          font-size: 16px;
+          font-weight: 700;
+          letter-spacing: 0.3px;
+          cursor: pointer;
+          box-shadow: 0 10px 30px rgba(0,119,255,0.35);
+          transition: all 0.25s ease;
+          position: relative;
+          overflow: hidden;
+      }
+
+      #sendBtn:hover {
+          transform: translateY(-2px) scale(1.02);
+          box-shadow: 0 14px 40px rgba(0,119,255,0.5);
+      }
+
+      #sendBtn:active {
+          transform: scale(0.98);
+          box-shadow: 0 6px 20px rgba(0,119,255,0.4);
+      }
+
+      #sendBtn::before {
+          content: "";
+          position: absolute;
+          inset: -2px;
+          background: linear-gradient(45deg, #00c6ff, #0077ff, #00ffe7);
+          opacity: 0;
+          filter: blur(10px);
+          transition: 0.3s;
+      }
+
+      #sendBtn:hover::before {
+          opacity: 0.6;
+      }
+
+      #sendBtn.loading {
+          pointer-events: none;
+          background: linear-gradient(135deg, #555, #777);
+      }
+
+      #sendBtn.loading::after {
+          content: "Лечим зубы...";
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 14px;
+          font-weight: 600;
+          background: rgba(0,0,0,0.45);
+          backdrop-filter: blur(4px);
+      }
+
+
 	</style>
 </head>
 
@@ -199,10 +295,12 @@
 	</div>
 </div>
 
+<div id="shadePanel" class="shade-panel"></div>
+
 <div id="loading">
-	<div id="statusText">Лечим зубы…</div>
 	<div id="timer">00:00</div>
 </div>
+<button id="sendBtn">Лечить зубы</button>
 
 <button id="downloadBtn">⬇ Скачать результат</button>
 
@@ -216,8 +314,50 @@
 	const placeholder = document.getElementById("placeholder");
 	const loading = document.getElementById("loading");
 	const statusText = document.getElementById("statusText");
-	const timerEl = document.getElementById("timer");
 	const downloadBtn = document.getElementById("downloadBtn");
+	const timerEl = document.getElementById("timer");
+	const sendBtn = document.getElementById("sendBtn");
+
+	const VITA_SHADES = [
+		"Bleach",
+		"A1","A2","A3","A3.5","A4",
+		"B1","B2","B3","B4",
+		"C1","C2","C3","C4",
+		"D2","D3","D4"
+	];
+
+	let selectedShade = null;
+
+	const shadePanel = document.getElementById("shadePanel");
+
+	function buildShadePanel() {
+		shadePanel.innerHTML = "";
+
+		VITA_SHADES.forEach(shade => {
+			const div = document.createElement("div");
+			div.className = "shade-item";
+
+			// ВАЖНО: png
+			div.innerHTML = `
+			<img src="assets/${shade}.png" alt="${shade}">
+<!--			<div>${shade}</div>-->
+			<input type="radio" name="shade" value="${shade}">
+		`;
+
+			div.onclick = () => {
+				document.querySelectorAll(".shade-item").forEach(e => e.classList.remove("selected"));
+				div.classList.add("selected");
+				div.querySelector("input").checked = true;
+				selectedShade = shade;
+
+				// ✅ Live preview зубов
+				// afterImg.src = `assets/${shade}.png`;
+			};
+
+			shadePanel.appendChild(div);
+		});
+	}
+
 
 	let isDraggingSlider = false;
 	let suppressUploadClick = false;
@@ -258,7 +398,6 @@
 		fileInput.click();
 	});
 
-
 	// DRAG DROP
 	uploadBox.ondragover = e => { e.preventDefault(); uploadBox.style.borderColor="#0077ff"; };
 	uploadBox.ondragleave = () => uploadBox.style.borderColor="#aaa";
@@ -271,69 +410,25 @@
 
 	// FILE HANDLER
 	fileInput.onchange = async () => {
-		if (busy) return;
 		const file = fileInput.files[0];
 		if (!file) return;
 
-		busy = true;
-		slider.style.display = "none";
-		downloadBtn.style.display = "none";
-		placeholder.style.display = "none";
-
 		// show original
-		const url = URL.createObjectURL(file);
-		beforeImg.src = url;
+		beforeImg.src = URL.createObjectURL(file);
 		beforeImg.style.display = "block";
+
+		// hide AI layer
 		afterImg.style.display = "none";
+		slider.style.display = "none";
 
-		// compress
-		const img = await createImageBitmap(file);
-		const canvas = document.createElement("canvas");
-		canvas.width = 1024;
-		canvas.height = img.height * 1024 / img.width;
-		canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-		const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.8));
+		// remove placeholder overlay fully
+		placeholder.style.display = "none";
+		placeholder.style.opacity = "0";
+		placeholder.style.pointerEvents = "none";
 
-		const formData = new FormData();
-		formData.append("image", blob, "photo.jpg");
-
-		// UI start
-		loading.style.display = "block";
-		startTimer();
-
-		try {
-			const res = await fetch("https://geminin-image-ai.vercel.app/api/image", {
-				method: "POST",
-				body: formData
-			});
-			const data = await res.json();
-
-			if (data.imageBase64) {
-				afterImg.src = data.imageBase64;
-				afterImg.style.display = "block";
-				slider.style.display = "block";
-				downloadBtn.style.display = "inline-block";
-
-				// ✅ AI finished
-				statusText.style.display = "none";
-
-				downloadBtn.onclick = () => {
-					const a = document.createElement("a");
-					a.href = data.imageBase64;
-					a.download = "gnatone_result.jpg";
-					a.click();
-				};
-			} else {
-				alert("AI error");
-				// alert("AI error: " + JSON.stringify(data));
-			}
-
-		} catch (e) {
-			alert("Network error: " + e);
-		}
-
-		stopTimer();
-		busy = false;
+		// palette
+		shadePanel.style.display = "grid";
+		buildShadePanel();
 	};
 
 	// SLIDER (mouse + touch)
@@ -389,6 +484,64 @@
 		if (dragging) moveSlider(e.touches[0].clientX);
 	});
 
+	document.getElementById("sendBtn").onclick = async () => {
+		if (!selectedShade) return alert("Выберите оттенок");
+		const file = fileInput.files[0];
+		if (!file) return alert("Загрузите фото");
+
+		loading.style.display = "block";
+		startTimer();
+
+		const img = await createImageBitmap(file);
+		const canvas = document.createElement("canvas");
+		canvas.width = 1024;
+		canvas.height = img.height * 1024 / img.width;
+		canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+		const blob = await new Promise(r => canvas.toBlob(r, "image/jpeg", 0.85));
+
+		const formData = new FormData();
+		formData.append("image", blob);
+		formData.append("shade", selectedShade);
+
+		sendBtn.classList.add("loading");
+
+		const res = await fetch("https://geminin-image-ai.vercel.app/api/image", {
+			method: "POST",
+			body: formData
+		});
+
+		const data = await res.json();
+
+		sendBtn.classList.remove("loading");
+
+		if (data.imageBase64) {
+			afterImg.src = data.imageBase64;
+			afterImg.style.display = "block";
+
+			// reset slider state
+			slider.style.display = "block";
+			slider.style.left = "50%";
+			slider.style.pointerEvents = "auto";
+
+			// IMPORTANT reset clip
+			afterImg.style.clipPath = "inset(0 0 0 50%)";
+
+			// show download
+			downloadBtn.style.display = "inline-block";
+
+			// download logic
+			downloadBtn.onclick = () => {
+				const a = document.createElement("a");
+				a.href = data.imageBase64;
+				a.download = "gnatone_result.jpg";
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+			};
+		}
+
+		stopTimer();
+	};
 
 </script>
 
