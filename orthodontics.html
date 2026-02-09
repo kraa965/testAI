@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="UTF-8" />
+	<title>Gnatone Mirror AI</title>
+
+	<style>
+      * { box-sizing: border-box; }
+
+      body {
+          font-family: Inter, Arial, sans-serif;
+          background: #f6f7fb;
+          text-align: center;
+          padding: 40px;
+      }
+
+      h2 {
+          font-size: 28px;
+          font-weight: 700;
+      }
+
+      #imageFile { display: none; }
+
+      /* MAIN BOX */
+      .main-box {
+          display: inline-block;   /* 🔑 ключ */
+          margin: 30px auto;
+          background: white;
+          border-radius: 20px;
+          padding: 16px;
+          border: 2px dashed #aaa;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+          cursor: pointer;
+      }
+
+
+      /* IMAGE AREA */
+      .compare-container {
+          position: relative;
+
+          /* 👇 стартовый размер (как раньше) */
+          width: 480px;
+          height: 480px;
+
+          /* 👇 ограничения для адаптива */
+          max-width: 90vw;
+          max-height: 70vh;
+
+          border-radius: 16px;
+          overflow: hidden;
+          background: #000;
+          margin: auto;
+
+          transition: width 0.25s ease, height 0.25s ease;
+      }
+
+      .compare-container img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          display: none;
+
+          user-select: none;
+          -webkit-user-drag: none;
+          pointer-events: none;
+      }
+
+      /* PLACEHOLDER */
+      .placeholder {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #666;
+          background: rgba(255,255,255,0.95);
+          font-size: 18px;
+      }
+
+      /* SLIDER (1:1 как в старом коде) */
+      #afterImg {
+          clip-path: inset(0 0 0 50%);
+      }
+
+      #slider {
+          position: absolute;
+          top: 0;
+          left: 50%;
+          width: 2px;
+          height: 100%;
+          background: rgba(255,255,255,0.9);
+          backdrop-filter: blur(4px);
+          box-shadow: 0 0 15px rgba(0,0,0,0.6);
+          cursor: ew-resize;
+          display: none;
+          pointer-events: auto;
+      }
+
+      #slider::before {
+          content: "⇆";
+          position: absolute;
+          top: 50%;
+          left: -22px;
+          width: 44px;
+          height: 44px;
+          background: rgba(0,119,255,0.95);
+          border-radius: 50%;
+          border: 3px solid white;
+          transform: translateY(-50%);
+          color: white;
+          font-size: 18px;
+          font-weight: bold;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+          transition: 0.2s;
+      }
+
+      #slider:hover::before {
+          transform: translateY(-50%) scale(1.15);
+      }
+
+      /* STATUS */
+      #loading {
+          margin-top: 20px;
+          display: none;
+      }
+
+      #timer {
+          font-size: 20px;
+          font-weight: bold;
+          color: #0077ff;
+      }
+
+      /* ANALYSIS BOX */
+      #analysisBox {
+          max-width: 820px;
+          margin: 40px auto;
+          padding: 28px;
+          background: white;
+          border-radius: 20px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+          display: none;
+          text-align: left;
+      }
+
+      #analysisBox h3 {
+          margin-top: 0;
+          color: #0077ff;
+      }
+
+      #analysisBox h4 {
+          margin-top: 24px;
+          margin-bottom: 10px;
+          font-size: 18px;
+      }
+
+      #analysisBox p {
+          line-height: 1.65;
+          margin: 10px 0;
+      }
+	</style>
+</head>
+
+<body>
+
+<h2>Gnatone Mirror AI</h2>
+
+<input type="file" id="imageFile" accept="image/*">
+
+<div class="main-box" id="uploadBox">
+	<div class="compare-container" id="compareBox">
+		<img id="beforeImg">
+		<img id="afterImg">
+		<div id="slider"></div>
+		<div class="placeholder" id="placeholder">
+			📸 Нажмите или перетащите фото
+		</div>
+	</div>
+</div>
+
+<div id="loading">
+	<div id="timer">00:00</div>
+</div>
+
+<div id="analysisBox">
+	<h3>🦷 Заключение ортодонта</h3>
+	<div id="analysisText"></div>
+</div>
+
+<script>
+	const fileInput = document.getElementById("imageFile");
+	const uploadBox = document.getElementById("uploadBox");
+	const compareBox = document.getElementById("compareBox");
+	const beforeImg = document.getElementById("beforeImg");
+	const afterImg = document.getElementById("afterImg");
+	const slider = document.getElementById("slider");
+	const placeholder = document.getElementById("placeholder");
+	const loading = document.getElementById("loading");
+	const timerEl = document.getElementById("timer");
+	const analysisBox = document.getElementById("analysisBox");
+	const analysisText = document.getElementById("analysisText");
+
+	let timerInterval, startTime;
+	let dragging = false;
+	let isDraggingSlider = false;
+	let suppressUploadClick = false;
+
+	/* TIMER */
+	function startTimer() {
+		startTime = performance.now();
+		timerInterval = setInterval(() => {
+			const t = Math.floor((performance.now() - startTime) / 1000);
+			timerEl.textContent =
+				String(Math.floor(t / 60)).padStart(2,"0") + ":" +
+				String(t % 60).padStart(2,"0");
+		}, 300);
+	}
+	function stopTimer() { clearInterval(timerInterval); }
+
+	/* TEXT FORMAT */
+	function formatAnalysisToHTML(text) {
+		const lines = text.split("\n");
+		let html = "";
+
+		let inUl = false;
+		let inOl = false;
+
+		function closeLists() {
+			if (inUl) {
+				html += "</ul>";
+				inUl = false;
+			}
+			if (inOl) {
+				html += "</ol>";
+				inOl = false;
+			}
+		}
+
+		for (let line of lines) {
+			line = line.trim();
+			if (!line) continue;
+
+			// ### Заголовки
+			if (line.startsWith("### ")) {
+				closeLists();
+				html += `<h4>${line.replace(/^###\s*/, "")}</h4>`;
+				continue;
+			}
+
+			// Жирный текст
+			line = line.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+			// Нумерованный список
+			if (/^\d+\.\s+/.test(line)) {
+				if (!inOl) {
+					closeLists();
+					html += "<ol>";
+					inOl = true;
+				}
+				html += `<li>${line.replace(/^\d+\.\s*/, "")}</li>`;
+				continue;
+			}
+
+			// Маркированный список
+			if (line.startsWith("* ")) {
+				if (!inUl) {
+					closeLists();
+					html += "<ul>";
+					inUl = true;
+				}
+				html += `<li>${line.replace(/^\*\s*/, "")}</li>`;
+				continue;
+			}
+
+			// Обычный абзац
+			closeLists();
+			html += `<p>${line}</p>`;
+		}
+
+		closeLists();
+		return html;
+	}
+
+	function fitContainerToImage(imgEl, containerEl) {
+		const maxW = Math.min(window.innerWidth * 0.9, 900);
+		const maxH = Math.min(window.innerHeight * 0.7, 700);
+
+		const iw = imgEl.naturalWidth;
+		const ih = imgEl.naturalHeight;
+
+		const scale = Math.min(maxW / iw, maxH / ih, 1);
+
+		containerEl.style.width = Math.round(iw * scale) + "px";
+		containerEl.style.height = Math.round(ih * scale) + "px";
+	}
+
+
+	/* UPLOAD */
+	uploadBox.addEventListener("click", e => {
+		if (isDraggingSlider || suppressUploadClick) return;
+		fileInput.click();
+	});
+
+	uploadBox.ondragover = e => e.preventDefault();
+	uploadBox.ondrop = e => {
+		e.preventDefault();
+		fileInput.files = e.dataTransfer.files;
+		fileInput.onchange();
+	};
+
+	fileInput.onchange = async () => {
+		const file = fileInput.files[0];
+		if (!file) return;
+
+		beforeImg.src = URL.createObjectURL(file);
+		beforeImg.onload = () => {
+			fitContainerToImage(beforeImg, compareBox);
+		};
+
+		beforeImg.style.display = "block";
+		placeholder.style.display = "none";
+
+		loading.style.display = "block";
+		startTimer();
+
+		const formData = new FormData();
+		formData.append("image", file, file.name);
+
+		const res = await fetch("https://geminin-image-ai.vercel.app/api/text-image", {
+			method: "POST",
+			body: formData
+		});
+		const data = await res.json();
+
+		stopTimer();
+		loading.style.display = "none";
+
+		if (data.analysis) {
+			analysisText.innerHTML = formatAnalysisToHTML(data.analysis);
+			analysisBox.style.display = "block";
+		}
+
+		if (data.imageBase64) {
+			afterImg.src = data.imageBase64;
+			afterImg.style.display = "block";
+			slider.style.display = "block";
+			slider.style.left = "50%";
+			afterImg.style.clipPath = "inset(0 0 0 50%)";
+		}
+	};
+
+	/* SLIDER (оригинальная логика) */
+	function moveSlider(x) {
+		const rect = compareBox.getBoundingClientRect();
+		x = Math.max(0, Math.min(x - rect.left, rect.width));
+		const p = (x / rect.width) * 100;
+		slider.style.left = p + "%";
+		afterImg.style.clipPath = `inset(0 0 0 ${p}%)`;
+	}
+
+	slider.addEventListener("mousedown", e => {
+		dragging = true;
+		isDraggingSlider = true;
+		suppressUploadClick = true;
+		e.preventDefault();
+	});
+
+	window.addEventListener("mouseup", () => {
+		dragging = false;
+		setTimeout(() => {
+			isDraggingSlider = false;
+			suppressUploadClick = false;
+		}, 100);
+	});
+
+	window.addEventListener("mousemove", e => {
+		if (dragging) moveSlider(e.clientX);
+	});
+
+	slider.addEventListener("touchstart", e => {
+		dragging = true;
+		isDraggingSlider = true;
+		suppressUploadClick = true;
+		e.preventDefault();
+	});
+
+	window.addEventListener("touchend", () => {
+		dragging = false;
+		setTimeout(() => {
+			isDraggingSlider = false;
+			suppressUploadClick = false;
+		}, 100);
+	});
+
+	window.addEventListener("touchmove", e => {
+		if (dragging) moveSlider(e.touches[0].clientX);
+	});
+</script>
+
+</body>
+</html>
