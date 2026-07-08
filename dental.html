@@ -6,6 +6,7 @@
 	<title>Диагностика и план лечения</title>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 	<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 	<style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
@@ -284,6 +285,9 @@
 </div>
 
 <script>
+	// pdf.js worker
+	pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
 	const API_URL = 'https://geminin-image-ai.vercel.app/api/dental_handler_improved';
 
 	const state = {
@@ -292,7 +296,7 @@
 		photos: []
 	};
 
-	// ── Логирование размеров ───────────────────────────────────────
+	// ── Логирование размеров ─────────────────────────────────────
 	function logFileSizes(label, files) {
 		console.group('📎 ' + label);
 		let total = 0;
@@ -360,44 +364,69 @@
 		});
 	}
 
-	// ── Сжатие PDF (pdf-lib) ─────────────────────────────────────
-	async function compressPDF(file) {
+	// ── Агрессивное сжатие PDF: рендер в canvas → обратно в PDF ────
+	async function compressPDF(file, scale = 1.5, quality = 0.7) {
+		const beforeMB = (file.size / 1024 / 1024).toFixed(2);
+		console.log(`📄 Начало сжатия PDF: ${file.name} (${beforeMB} MB)`);
+
 		try {
 			const arrayBuffer = await file.arrayBuffer();
-			const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer, { updateMetadata: false });
+			const pdfDoc = await PDFLib.PDFDocument.create();
+			const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+			const pdf = await loadingTask.promise;
 
-			// Удаляем встроенные шрифты, оставляем только подмножества
-			const pages = pdfDoc.getPages();
-			for (const page of pages) {
-				const resources = page.node.Resources();
-				if (resources) {
-					const fonts = resources.lookup(PDFLib.PDFName.of('Font'));
-					if (fonts && fonts instanceof PDFLib.PDFDict) {
-						// pdf-lib автоматически оптимизирует при save()
-					}
-				}
+			for (let i = 1; i <= pdf.numPages; i++) {
+				const page = await pdf.getPage(i);
+				const viewport = page.getViewport({ scale });
+
+				const canvas = document.createElement('canvas');
+				canvas.width = viewport.width;
+				canvas.height = viewport.height;
+				const ctx = canvas.getContext('2d');
+
+				await page.render({ canvasContext: ctx, viewport }).promise;
+
+				// Конвертируем canvas в JPEG
+				const imgData = canvas.toDataURL('image/jpeg', quality);
+				const imgBytes = Uint8Array.from(atob(imgData.split(',')[1]), c => c.charCodeAt(0));
+
+				// Встраиваем в новый PDF
+				const embeddedImg = await pdfDoc.embedJpg(imgBytes);
+				const newPage = pdfDoc.addPage([viewport.width, viewport.height]);
+				newPage.drawImage(embeddedImg, {
+					x: 0, y: 0,
+					width: viewport.width,
+					height: viewport.height
+				});
+
+				page.cleanup();
 			}
 
-			// Сохраняем с оптимизацией
-			const compressedBytes = await pdfDoc.save({
-				useObjectStreams: true,
-				addDefaultPage: false,
-				preserveExistingEncryption: false
-			});
-
+			const compressedBytes = await pdfDoc.save({ useObjectStreams: true });
 			const compressedFile = new File([compressedBytes], file.name, {
 				type: 'application/pdf',
 				lastModified: Date.now()
 			});
 
-			const beforeMB = (file.size / 1024 / 1024).toFixed(2);
 			const afterMB = (compressedFile.size / 1024 / 1024).toFixed(2);
-			console.log(`📄 PDF сжат: ${beforeMB} MB → ${afterMB} MB`);
-
+			console.log(`📄 PDF сжат: ${beforeMB} MB → ${afterMB} MB (страниц: ${pdf.numPages})`);
 			return compressedFile;
+
 		} catch (e) {
-			console.warn('PDF compression failed, using original:', e.message);
-			return file;
+			console.warn('PDF render-compress failed, trying pdf-lib only:', e.message);
+			// Fallback: просто pdf-lib
+			try {
+				const arrayBuffer = await file.arrayBuffer();
+				const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+				const compressedBytes = await pdfDoc.save({ useObjectStreams: true });
+				const compressedFile = new File([compressedBytes], file.name, { type: 'application/pdf', lastModified: Date.now() });
+				const afterMB = (compressedFile.size / 1024 / 1024).toFixed(2);
+				console.log(`📄 PDF fallback сжат: ${beforeMB} MB → ${afterMB} MB`);
+				return compressedFile;
+			} catch (e2) {
+				console.warn('All PDF compression failed, using original:', e2.message);
+				return file;
+			}
 		}
 	}
 
@@ -418,7 +447,7 @@
 			const pdf = files.find(f => isPDF(f));
 			if (pdf) {
 				setStatus('Сжатие протоколов...');
-				state.protocols = await compressPDF(pdf);
+				state.protocols = await compressPDF(pdf, 1.2, 0.65);
 				setStatus('');
 			}
 			renderProtocols();
@@ -428,7 +457,7 @@
 			for (const f of pdfs) {
 				if (state.reports.find(r => r.name === f.name)) continue;
 				setStatus(`Сжатие отчёта: ${f.name}...`);
-				const compressed = await compressPDF(f);
+				const compressed = await compressPDF(f, 1.2, 0.65);
 				state.reports.push(compressed);
 			}
 			if (state.reports.length > 2) state.reports = state.reports.slice(0, 2);
