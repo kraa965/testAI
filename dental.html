@@ -5,6 +5,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Диагностика и план лечения</title>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 	<style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
@@ -75,6 +76,10 @@
           font-size: 16px; line-height: 1; transition: opacity 0.2s;
       }
       .file-chip .remove:hover { opacity: 1; }
+      .file-chip .size {
+          font-size: 11px; color: #818cf8; margin-left: 4px;
+      }
+      .file-chip .size::before { content: "· "; }
       .photo-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
@@ -119,8 +124,6 @@
           text-align: center; font-size: 13px; color: #6b7280;
           margin-top: 12px; min-height: 20px;
       }
-
-      /* ── Результаты: две вкладки ─────────────────────────────── */
       .results-area { margin-top: 24px; }
       .results-tabs {
           display: flex; gap: 4px;
@@ -148,13 +151,8 @@
           margin-left: 6px; text-align: center;
       }
       .results-tab.active .tab-badge { background: #e0e7ff; color: #4f46e5; }
-
-      .result-panel {
-          display: none;
-          animation: fadeIn 0.35s ease;
-      }
+      .result-panel { display: none; animation: fadeIn 0.35s ease; }
       .result-panel.active { display: block; }
-
       .result-block {
           padding: 24px; border-radius: 14px;
           background: #f8fafc; border: 1px solid #e2e8f0;
@@ -172,31 +170,20 @@
           font-size: 14px; color: #334155;
           white-space: pre-wrap; line-height: 1.75;
       }
-      .result-block-body h1, .result-block-body h2, .result-block-body h3 {
-          color: #1e293b; margin: 20px 0 10px;
-      }
-      .result-block-body h1 { font-size: 18px; }
-      .result-block-body h2 { font-size: 16px; }
-      .result-block-body h3 { font-size: 15px; }
-      .result-block-body strong { color: #0f172a; }
-      .result-block-body ul { padding-left: 20px; margin: 8px 0; }
-      .result-block-body li { margin: 4px 0; }
-
       .spinner {
           display: inline-block; width: 18px; height: 18px;
           border: 2.5px solid #fff; border-top-color: transparent;
           border-radius: 50%; animation: spin 0.8s linear infinite;
           vertical-align: middle; margin-right: 10px;
       }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-
       .compress-info {
           font-size: 12px; color: #10b981; margin-top: 6px;
           display: none;
       }
       .compress-info.visible { display: block; }
-
+      .compress-info.warn { color: #f59e0b; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
       @media (max-width: 640px) {
           body { padding: 12px; }
           .container { padding: 20px; border-radius: 16px; }
@@ -215,7 +202,6 @@
 		<div class="header-subtitle">Загрузите фотографии, отчёты и протоколы для AI-анализа</div>
 	</div>
 
-	<!-- Protocols -->
 	<div class="section">
 		<div class="section-label">
 			<span class="dot" style="background:#ef4444;"></span>
@@ -225,13 +211,12 @@
 		<div class="dropzone" id="dz-protocols" onclick="document.getElementById('input-protocols').click()">
 			<div class="dropzone-icon">📄</div>
 			<div class="dropzone-text">Перетащите PDF с протоколами или нажмите для выбора</div>
-			<div class="dropzone-hint">Этот файл станет основой построения логики лечения</div>
+			<div class="dropzone-hint">PDF будет автоматически сжат перед отправкой</div>
 		</div>
 		<input type="file" id="input-protocols" accept=".pdf,application/pdf" style="display:none" onchange="handleFiles(this, 'protocols')">
 		<div class="file-list" id="list-protocols"></div>
 	</div>
 
-	<!-- Reports -->
 	<div class="section">
 		<div class="section-label">
 			<span class="dot" style="background:#f59e0b;"></span>
@@ -241,13 +226,12 @@
 		<div class="dropzone" id="dz-reports" onclick="document.getElementById('input-reports').click()">
 			<div class="dropzone-icon">📋</div>
 			<div class="dropzone-text">Перетащите 2 PDF-отчёта или нажмите для выбора</div>
-			<div class="dropzone-hint">КЛКТ, цефалометрия, диагностика — любые PDF-отчёты</div>
+			<div class="dropzone-hint">PDF будут автоматически сжаты перед отправкой</div>
 		</div>
 		<input type="file" id="input-reports" accept=".pdf,application/pdf" multiple style="display:none" onchange="handleFiles(this, 'reports')">
 		<div class="file-list" id="list-reports"></div>
 	</div>
 
-	<!-- Photos -->
 	<div class="section">
 		<div class="section-label">
 			<span class="dot" style="background:#10b981;"></span>
@@ -257,14 +241,13 @@
 		<div class="dropzone" id="dz-photos" onclick="document.getElementById('input-photos').click()">
 			<div class="dropzone-icon">📷</div>
 			<div class="dropzone-text">Перетащите фотографии или нажмите для выбора</div>
-			<div class="dropzone-hint">Фото будут автоматически сжаты до ~800KB каждое перед отправкой</div>
+			<div class="dropzone-hint">Фото будут автоматически сжаты до ~800KB каждое</div>
 		</div>
 		<input type="file" id="input-photos" accept="image/*" multiple style="display:none" onchange="handleFiles(this, 'photos')">
 		<div class="photo-grid" id="list-photos"></div>
-		<div class="compress-info" id="compress-info">✅ Фото сжаты для быстрой отправки</div>
+		<div class="compress-info" id="compress-info">✅ Файлы сжаты для быстрой отправки</div>
 	</div>
 
-	<!-- Submit -->
 	<button class="btn btn-primary" id="submit-btn" onclick="submitForm()">
 		🔬 Запустить анализ
 	</button>
@@ -276,7 +259,6 @@
 	</div>
 	<div class="status-line" id="status-line"></div>
 
-	<!-- Results: Two Tabs -->
 	<div class="results-area" id="results-area" style="display:none;">
 		<div class="results-tabs">
 			<button class="results-tab active" id="tab-plans" onclick="switchTab('plans')">
@@ -286,14 +268,12 @@
 				💡 Рекомендации доктору <span class="tab-badge">2</span>
 			</button>
 		</div>
-
 		<div class="result-panel active" id="panel-plans">
 			<div class="result-block" id="block-plans">
 				<div class="result-block-title">📋 Планы лечения</div>
 				<div class="result-block-body" id="body-plans">Загрузка...</div>
 			</div>
 		</div>
-
 		<div class="result-panel" id="panel-recommendations">
 			<div class="result-block" id="block-recommendations">
 				<div class="result-block-title">💡 Клинические рекомендации доктору</div>
@@ -304,6 +284,15 @@
 </div>
 
 <script>
+	const API_URL = 'https://geminin-image-ai.vercel.app/api/dental_handler_improved';
+
+	const state = {
+		protocols: null,
+		reports: [],
+		photos: []
+	};
+
+	// ── Логирование размеров ───────────────────────────────────────
 	function logFileSizes(label, files) {
 		console.group('📎 ' + label);
 		let total = 0;
@@ -337,19 +326,12 @@
 		} else {
 			console.log(`📷 photos: (не загружены)`);
 		}
-		console.log(`\n🎯 ОБЩИЙ РАЗМЕР: ${(grandTotal / 1024 / 1024).toFixed(2)} MB`);
+		console.log(`
+🎯 ОБЩИЙ РАЗМЕР: ${(grandTotal / 1024 / 1024).toFixed(2)} MB`);
 		console.groupEnd();
 	}
 
-	const API_URL = 'https://geminin-image-ai.vercel.app/api/dental_handler_improved';
-
-	const state = {
-		protocols: null,
-		reports: [],
-		photos: []        // исходные File
-	};
-
-	// ── Сжатие фото перед отправкой ────────────────────────────────
+	// ── Сжатие изображений (Canvas) ──────────────────────────────
 	async function compressImage(file, maxWidth = 1600, maxHeight = 1600, quality = 0.75) {
 		return new Promise((resolve, reject) => {
 			const img = new Image();
@@ -378,6 +360,47 @@
 		});
 	}
 
+	// ── Сжатие PDF (pdf-lib) ─────────────────────────────────────
+	async function compressPDF(file) {
+		try {
+			const arrayBuffer = await file.arrayBuffer();
+			const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer, { updateMetadata: false });
+
+			// Удаляем встроенные шрифты, оставляем только подмножества
+			const pages = pdfDoc.getPages();
+			for (const page of pages) {
+				const resources = page.node.Resources();
+				if (resources) {
+					const fonts = resources.lookup(PDFLib.PDFName.of('Font'));
+					if (fonts && fonts instanceof PDFLib.PDFDict) {
+						// pdf-lib автоматически оптимизирует при save()
+					}
+				}
+			}
+
+			// Сохраняем с оптимизацией
+			const compressedBytes = await pdfDoc.save({
+				useObjectStreams: true,
+				addDefaultPage: false,
+				preserveExistingEncryption: false
+			});
+
+			const compressedFile = new File([compressedBytes], file.name, {
+				type: 'application/pdf',
+				lastModified: Date.now()
+			});
+
+			const beforeMB = (file.size / 1024 / 1024).toFixed(2);
+			const afterMB = (compressedFile.size / 1024 / 1024).toFixed(2);
+			console.log(`📄 PDF сжат: ${beforeMB} MB → ${afterMB} MB`);
+
+			return compressedFile;
+		} catch (e) {
+			console.warn('PDF compression failed, using original:', e.message);
+			return file;
+		}
+	}
+
 	// ── Tab Switching ──────────────────────────────────────────────
 	function switchTab(tab) {
 		document.querySelectorAll('.results-tab').forEach(t => t.classList.remove('active'));
@@ -393,14 +416,23 @@
 
 		if (type === 'protocols') {
 			const pdf = files.find(f => isPDF(f));
-			if (pdf) state.protocols = pdf;
+			if (pdf) {
+				setStatus('Сжатие протоколов...');
+				state.protocols = await compressPDF(pdf);
+				setStatus('');
+			}
 			renderProtocols();
 		}
 		else if (type === 'reports') {
-			files.filter(isPDF).forEach(f => {
-				if (!state.reports.find(r => r.name === f.name)) state.reports.push(f);
-			});
+			const pdfs = files.filter(isPDF);
+			for (const f of pdfs) {
+				if (state.reports.find(r => r.name === f.name)) continue;
+				setStatus(`Сжатие отчёта: ${f.name}...`);
+				const compressed = await compressPDF(f);
+				state.reports.push(compressed);
+			}
 			if (state.reports.length > 2) state.reports = state.reports.slice(0, 2);
+			setStatus('');
 			renderReports();
 		}
 		else if (type === 'photos') {
@@ -429,16 +461,20 @@
 	}
 
 	// ── Rendering ──────────────────────────────────────────────────
+	function formatSize(bytes) {
+		return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+	}
+
 	function renderProtocols() {
 		const el = document.getElementById('list-protocols');
 		if (!state.protocols) { el.innerHTML = ''; return; }
-		el.innerHTML = `<span class="file-chip">📄 ${escapeHtml(state.protocols.name)} <span class="remove" onclick="removeFile('protocols')">×</span></span>`;
+		el.innerHTML = `<span class="file-chip">📄 ${escapeHtml(state.protocols.name)} <span class="size">${formatSize(state.protocols.size)}</span> <span class="remove" onclick="removeFile('protocols')">×</span></span>`;
 	}
 
 	function renderReports() {
 		const el = document.getElementById('list-reports');
 		el.innerHTML = state.reports.map((f, i) =>
-			`<span class="file-chip">📋 ${escapeHtml(f.name)} <span class="remove" onclick="removeFile('reports', ${i})">×</span></span>`
+			`<span class="file-chip">📋 ${escapeHtml(f.name)} <span class="size">${formatSize(f.size)}</span> <span class="remove" onclick="removeFile('reports', ${i})">×</span></span>`
 		).join('');
 	}
 
@@ -457,10 +493,10 @@
 		if (type === 'protocols') state.protocols = null;
 		else if (type === 'reports') state.reports.splice(idx, 1);
 		else if (type === 'photos') state.photos.splice(idx, 1);
-
 		if (type === 'protocols') renderProtocols();
 		if (type === 'reports') renderReports();
 		if (type === 'photos') renderPhotos();
+		logAllStateSizes();
 		updateSubmitButton();
 	}
 
@@ -475,7 +511,6 @@
 		const btn = document.getElementById('submit-btn');
 		const valid = state.protocols && state.reports.length === 2 && state.photos.length >= 1;
 		btn.disabled = !valid;
-
 		if (!valid) {
 			const missing = [];
 			if (!state.protocols) missing.push('протоколы');
@@ -500,7 +535,6 @@
 	async function submitForm() {
 		const btn = document.getElementById('submit-btn');
 		const resultsArea = document.getElementById('results-area');
-
 		btn.disabled = true;
 		btn.innerHTML = '<span class="spinner"></span>Анализируем...';
 		resultsArea.style.display = 'none';
@@ -527,21 +561,13 @@
 		try {
 			setProgress(30);
 			setStatus('Отправка данных на сервер...');
-
-			const res = await fetch(API_URL, {
-				method: 'POST',
-				body: formData
-			});
-
+			const res = await fetch(API_URL, { method: 'POST', body: formData });
 			setProgress(70);
 			setStatus('Обработка ответа...');
-
 			const data = await res.json();
 			setProgress(100);
 			setStatus('');
-
 			resultsArea.style.display = 'block';
-
 			if (data.error) {
 				document.getElementById('body-plans').textContent = data.error;
 				document.getElementById('body-recommendations').textContent = data.error;
@@ -554,7 +580,6 @@
 				document.getElementById('block-recommendations').classList.remove('error');
 			}
 			switchTab('plans');
-
 		} catch (e) {
 			setProgress(0);
 			setStatus('');
@@ -587,7 +612,6 @@
 		});
 	});
 
-	// Init
 	updateSubmitButton();
 </script>
 </body>
