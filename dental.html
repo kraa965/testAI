@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Диагностика и план лечения</title>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+          font-family: 'Inter', system-ui, -apple-system, sans-serif;
+          background: #f3f4f6;
+          min-height: 100vh;
+          padding: 24px;
+      }
+      .container {
+          max-width: 900px;
+          margin: 0 auto;
+          background: #fff;
+          border-radius: 20px;
+          padding: 32px;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+      }
+      .header {
+          text-align: center;
+          margin-bottom: 28px;
+      }
+      .header-icon { font-size: 40px; margin-bottom: 8px; }
+      .header-title { font-size: 24px; font-weight: 700; color: #111827; }
+      .header-subtitle { font-size: 14px; color: #6b7280; margin-top: 4px; }
+      .section { margin-bottom: 24px; }
+      .section-label {
+          font-size: 14px;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 10px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+      }
+      .section-label .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+      .badge {
+          font-size: 11px;
+          padding: 3px 10px;
+          border-radius: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+      }
+      .badge-required { background: #fee2e2; color: #991b1b; }
+      .badge-optional { background: #e0e7ff; color: #4338ca; }
+      .dropzone {
+          border: 2px dashed #d1d5db;
+          border-radius: 14px;
+          padding: 32px 20px;
+          text-align: center;
+          cursor: pointer;
+          transition: all 0.25s;
+          background: #f9fafb;
+      }
+      .dropzone:hover { border-color: #6366f1; background: #eef2ff; }
+      .dropzone.dragover { border-color: #6366f1; background: #e0e7ff; border-style: solid; }
+      .dropzone-icon { font-size: 32px; margin-bottom: 10px; }
+      .dropzone-text { font-size: 15px; color: #4b5563; font-weight: 500; }
+      .dropzone-hint { font-size: 12px; color: #9ca3af; margin-top: 6px; }
+      .file-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      .file-chip {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: #e0e7ff; color: #4338ca;
+          padding: 6px 14px; border-radius: 24px;
+          font-size: 13px; font-weight: 500;
+      }
+      .file-chip .remove {
+          cursor: pointer; font-weight: 700; opacity: 0.5;
+          font-size: 16px; line-height: 1; transition: opacity 0.2s;
+      }
+      .file-chip .remove:hover { opacity: 1; }
+      .photo-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+          gap: 10px;
+          margin-top: 12px;
+      }
+      .photo-thumb {
+          position: relative; border-radius: 12px; overflow: hidden;
+          aspect-ratio: 1; background: #f3f4f6; border: 1px solid #e5e7eb;
+      }
+      .photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+      .photo-thumb .remove {
+          position: absolute; top: 5px; right: 5px;
+          width: 24px; height: 24px; border-radius: 50%;
+          background: rgba(0,0,0,0.55); color: #fff;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 16px; cursor: pointer; line-height: 1;
+          transition: background 0.2s;
+      }
+      .photo-thumb .remove:hover { background: rgba(220,38,38,0.85); }
+      .btn {
+          width: 100%; padding: 16px; border-radius: 14px; border: none;
+          font-size: 16px; font-weight: 600; cursor: pointer;
+          transition: all 0.2s; font-family: inherit;
+      }
+      .btn-primary { background: #4f46e5; color: #fff; }
+      .btn-primary:hover { background: #4338ca; transform: translateY(-1px); }
+      .btn-primary:disabled { background: #a5b4fc; cursor: not-allowed; transform: none; }
+      .progress-wrap {
+          margin-top: 16px;
+          display: none;
+      }
+      .progress-bar {
+          width: 100%; height: 6px; background: #e5e7eb;
+          border-radius: 3px; overflow: hidden;
+      }
+      .progress-fill {
+          height: 100%; background: #4f46e5; border-radius: 3px;
+          transition: width 0.4s ease; width: 0;
+      }
+      .status-line {
+          text-align: center; font-size: 13px; color: #6b7280;
+          margin-top: 12px; min-height: 20px;
+      }
+
+      /* ── Результаты: две вкладки ─────────────────────────────── */
+      .results-area { margin-top: 24px; }
+      .results-tabs {
+          display: flex; gap: 4px;
+          background: #f3f4f6;
+          border-radius: 12px;
+          padding: 4px;
+          margin-bottom: 16px;
+      }
+      .results-tab {
+          flex: 1; padding: 10px 16px;
+          border-radius: 10px; border: none;
+          background: transparent; color: #6b7280;
+          font-size: 14px; font-weight: 600; cursor: pointer;
+          transition: all 0.2s; font-family: inherit;
+      }
+      .results-tab.active {
+          background: #fff; color: #4f46e5;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      }
+      .results-tab .tab-badge {
+          display: inline-block;
+          width: 18px; height: 18px; border-radius: 50%;
+          background: #e5e7eb; color: #6b7280;
+          font-size: 10px; line-height: 18px;
+          margin-left: 6px; text-align: center;
+      }
+      .results-tab.active .tab-badge { background: #e0e7ff; color: #4f46e5; }
+
+      .result-panel {
+          display: none;
+          animation: fadeIn 0.35s ease;
+      }
+      .result-panel.active { display: block; }
+
+      .result-block {
+          padding: 24px; border-radius: 14px;
+          background: #f8fafc; border: 1px solid #e2e8f0;
+      }
+      .result-block.error { background: #fef2f2; border-color: #fecaca; }
+      .result-block-title {
+          font-size: 16px; font-weight: 700;
+          color: #1e293b; margin-bottom: 16px;
+          display: flex; align-items: center; gap: 8px;
+          padding-bottom: 12px;
+          border-bottom: 2px solid #e2e8f0;
+      }
+      .result-block.error .result-block-title { color: #991b1b; border-color: #fecaca; }
+      .result-block-body {
+          font-size: 14px; color: #334155;
+          white-space: pre-wrap; line-height: 1.75;
+      }
+      .result-block-body h1, .result-block-body h2, .result-block-body h3 {
+          color: #1e293b; margin: 20px 0 10px;
+      }
+      .result-block-body h1 { font-size: 18px; }
+      .result-block-body h2 { font-size: 16px; }
+      .result-block-body h3 { font-size: 15px; }
+      .result-block-body strong { color: #0f172a; }
+      .result-block-body ul { padding-left: 20px; margin: 8px 0; }
+      .result-block-body li { margin: 4px 0; }
+
+      .spinner {
+          display: inline-block; width: 18px; height: 18px;
+          border: 2.5px solid #fff; border-top-color: transparent;
+          border-radius: 50%; animation: spin 0.8s linear infinite;
+          vertical-align: middle; margin-right: 10px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+      @media (max-width: 640px) {
+          body { padding: 12px; }
+          .container { padding: 20px; border-radius: 16px; }
+          .header-title { font-size: 20px; }
+          .photo-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+          .results-tabs { flex-direction: column; }
+      }
+	</style>
+	<base target="_blank">
+</head>
+<body>
+<div class="container">
+	<div class="header">
+		<div class="header-icon">🦷</div>
+		<div class="header-title">Диагностика и план лечения</div>
+		<div class="header-subtitle">Загрузите фотографии, отчёты и протоколы для AI-анализа</div>
+	</div>
+
+	<!-- Protocols -->
+	<div class="section">
+		<div class="section-label">
+			<span class="dot" style="background:#ef4444;"></span>
+			Файл протоколов исследования
+			<span class="badge badge-required">Обязательно · 1 PDF</span>
+		</div>
+		<div class="dropzone" id="dz-protocols" onclick="document.getElementById('input-protocols').click()">
+			<div class="dropzone-icon">📄</div>
+			<div class="dropzone-text">Перетащите PDF с протоколами или нажмите для выбора</div>
+			<div class="dropzone-hint">Этот файл станет основой построения логики лечения</div>
+		</div>
+		<input type="file" id="input-protocols" accept=".pdf,application/pdf" style="display:none" onchange="handleFiles(this, 'protocols')">
+		<div class="file-list" id="list-protocols"></div>
+	</div>
+
+	<!-- Reports -->
+	<div class="section">
+		<div class="section-label">
+			<span class="dot" style="background:#f59e0b;"></span>
+			Отчёты исследований
+			<span class="badge badge-required">Обязательно · 2 PDF</span>
+		</div>
+		<div class="dropzone" id="dz-reports" onclick="document.getElementById('input-reports').click()">
+			<div class="dropzone-icon">📋</div>
+			<div class="dropzone-text">Перетащите 2 PDF-отчёта или нажмите для выбора</div>
+			<div class="dropzone-hint">КЛКТ, цефалометрия, диагностика — любые PDF-отчёты</div>
+		</div>
+		<input type="file" id="input-reports" accept=".pdf,application/pdf" multiple style="display:none" onchange="handleFiles(this, 'reports')">
+		<div class="file-list" id="list-reports"></div>
+	</div>
+
+	<!-- Photos -->
+	<div class="section">
+		<div class="section-label">
+			<span class="dot" style="background:#10b981;"></span>
+			Клинические фотографии
+			<span class="badge badge-required">Минимум 1 фото</span>
+		</div>
+		<div class="dropzone" id="dz-photos" onclick="document.getElementById('input-photos').click()">
+			<div class="dropzone-icon">📷</div>
+			<div class="dropzone-text">Перетащите фотографии или нажмите для выбора</div>
+			<div class="dropzone-hint">Внутриротовые, профиль, фронт — любые изображения</div>
+		</div>
+		<input type="file" id="input-photos" accept="image/*" multiple style="display:none" onchange="handleFiles(this, 'photos')">
+		<div class="photo-grid" id="list-photos"></div>
+	</div>
+
+	<!-- Submit -->
+	<button class="btn btn-primary" id="submit-btn" onclick="submitForm()">
+		🔬 Запустить анализ
+	</button>
+
+	<div class="progress-wrap" id="progress-wrap">
+		<div class="progress-bar">
+			<div class="progress-fill" id="progress-fill"></div>
+		</div>
+	</div>
+	<div class="status-line" id="status-line"></div>
+
+	<!-- Results: Two Tabs -->
+	<div class="results-area" id="results-area" style="display:none;">
+		<div class="results-tabs">
+			<button class="results-tab active" id="tab-plans" onclick="switchTab('plans')">
+				📋 Планы лечения <span class="tab-badge">1</span>
+			</button>
+			<button class="results-tab" id="tab-recommendations" onclick="switchTab('recommendations')">
+				💡 Рекомендации доктору <span class="tab-badge">2</span>
+			</button>
+		</div>
+
+		<div class="result-panel active" id="panel-plans">
+			<div class="result-block" id="block-plans">
+				<div class="result-block-title">📋 Планы лечения</div>
+				<div class="result-block-body" id="body-plans">Загрузка...</div>
+			</div>
+		</div>
+
+		<div class="result-panel" id="panel-recommendations">
+			<div class="result-block" id="block-recommendations">
+				<div class="result-block-title">💡 Клинические рекомендации доктору</div>
+				<div class="result-block-body" id="body-recommendations">Загрузка...</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const API_URL = 'https://geminin-image-ai.vercel.app/api/dental_handler_improved';
+
+	const state = {
+		protocols: null,
+		reports: [],
+		photos: []
+	};
+
+	// ── Tab Switching ──────────────────────────────────────────────
+	function switchTab(tab) {
+		document.querySelectorAll('.results-tab').forEach(t => t.classList.remove('active'));
+		document.querySelectorAll('.result-panel').forEach(p => p.classList.remove('active'));
+		document.getElementById('tab-' + tab).classList.add('active');
+		document.getElementById('panel-' + tab).classList.add('active');
+	}
+
+	// ── File Handling ──────────────────────────────────────────────
+	function handleFiles(input, type) {
+		const files = Array.from(input.files);
+		if (!files.length) return;
+
+		if (type === 'protocols') {
+			const pdf = files.find(f => isPDF(f));
+			if (pdf) state.protocols = pdf;
+			renderProtocols();
+		}
+		else if (type === 'reports') {
+			files.filter(isPDF).forEach(f => {
+				if (!state.reports.find(r => r.name === f.name)) state.reports.push(f);
+			});
+			if (state.reports.length > 2) state.reports = state.reports.slice(0, 2);
+			renderReports();
+		}
+		else if (type === 'photos') {
+			files.filter(f => f.type.startsWith('image/')).forEach(f => {
+				if (!state.photos.find(p => p.name === f.name)) state.photos.push(f);
+			});
+			renderPhotos();
+		}
+		input.value = '';
+		updateSubmitButton();
+	}
+
+	function isPDF(file) {
+		return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+	}
+
+	// ── Rendering ──────────────────────────────────────────────────
+	function renderProtocols() {
+		const el = document.getElementById('list-protocols');
+		if (!state.protocols) { el.innerHTML = ''; return; }
+		el.innerHTML = `<span class="file-chip">📄 ${escapeHtml(state.protocols.name)} <span class="remove" onclick="removeFile('protocols')">×</span></span>`;
+	}
+
+	function renderReports() {
+		const el = document.getElementById('list-reports');
+		el.innerHTML = state.reports.map((f, i) =>
+			`<span class="file-chip">📋 ${escapeHtml(f.name)} <span class="remove" onclick="removeFile('reports', ${i})">×</span></span>`
+		).join('');
+	}
+
+	function renderPhotos() {
+		const el = document.getElementById('list-photos');
+		el.innerHTML = state.photos.map((f, i) => {
+			const url = URL.createObjectURL(f);
+			return `<div class="photo-thumb">
+          <img src="${url}" alt="${escapeHtml(f.name)}">
+          <div class="remove" onclick="removeFile('photos', ${i})">×</div>
+        </div>`;
+		}).join('');
+	}
+
+	function removeFile(type, idx) {
+		if (type === 'protocols') state.protocols = null;
+		else if (type === 'reports') state.reports.splice(idx, 1);
+		else if (type === 'photos') state.photos.splice(idx, 1);
+
+		if (type === 'protocols') renderProtocols();
+		if (type === 'reports') renderReports();
+		if (type === 'photos') renderPhotos();
+		updateSubmitButton();
+	}
+
+	function escapeHtml(text) {
+		const div = document.createElement('div');
+		div.textContent = text;
+		return div.innerHTML;
+	}
+
+	// ── Submit Button State ────────────────────────────────────────
+	function updateSubmitButton() {
+		const btn = document.getElementById('submit-btn');
+		const valid = state.protocols && state.reports.length === 2 && state.photos.length >= 1;
+		btn.disabled = !valid;
+
+		if (!valid) {
+			const missing = [];
+			if (!state.protocols) missing.push('протоколы');
+			if (state.reports.length < 2) missing.push(`отчёты (${state.reports.length}/2)`);
+			if (state.photos.length < 1) missing.push('фото');
+			btn.innerHTML = `⏳ Добавьте: ${missing.join(', ')}`;
+		} else {
+			btn.innerHTML = '🔬 Запустить анализ';
+		}
+	}
+
+	// ── Progress & Status ──────────────────────────────────────────
+	function setProgress(pct) {
+		document.getElementById('progress-wrap').style.display = 'block';
+		document.getElementById('progress-fill').style.width = pct + '%';
+	}
+	function setStatus(text) {
+		document.getElementById('status-line').textContent = text;
+	}
+
+	// ── Submit ─────────────────────────────────────────────────────
+	async function submitForm() {
+		const btn = document.getElementById('submit-btn');
+		const resultsArea = document.getElementById('results-area');
+
+		btn.disabled = true;
+		btn.innerHTML = '<span class="spinner"></span>Анализируем...';
+		resultsArea.style.display = 'none';
+		setProgress(10);
+		setStatus('Формируем запрос...');
+
+		const formData = new FormData();
+		formData.append('research_protocols_file', state.protocols);
+		state.reports.forEach((f, i) => formData.append(`report_${i + 1}`, f));
+		state.photos.forEach((f, i) => formData.append(`photo_${i + 1}`, f));
+
+		try {
+			setProgress(30);
+			setStatus('Отправка данных на сервер...');
+
+			const res = await fetch(API_URL, {
+				method: 'POST',
+				body: formData
+			});
+
+			setProgress(70);
+			setStatus('Обработка ответа...');
+
+			const data = await res.json();
+			setProgress(100);
+			setStatus('');
+
+			resultsArea.style.display = 'block';
+
+			if (data.error) {
+				// Показываем ошибку в обеих вкладках
+				document.getElementById('body-plans').textContent = data.error;
+				document.getElementById('body-recommendations').textContent = data.error;
+				document.getElementById('block-plans').classList.add('error');
+				document.getElementById('block-recommendations').classList.add('error');
+			} else {
+				// Планы лечения
+				document.getElementById('body-plans').textContent = data.treatmentPlans || 'Нет данных';
+				document.getElementById('block-plans').classList.remove('error');
+
+				// Рекомендации доктору
+				document.getElementById('body-recommendations').textContent = data.doctorRecommendations || 'Нет данных';
+				document.getElementById('block-recommendations').classList.remove('error');
+			}
+
+			// Сбрасываем на первую вкладку
+			switchTab('plans');
+
+		} catch (e) {
+			setProgress(0);
+			setStatus('');
+			resultsArea.style.display = 'block';
+			const errText = e.message + '\n\nПроверьте подключение к интернету и доступность API.';
+			document.getElementById('body-plans').textContent = errText;
+			document.getElementById('body-recommendations').textContent = errText;
+			document.getElementById('block-plans').classList.add('error');
+			document.getElementById('block-recommendations').classList.add('error');
+			switchTab('plans');
+		} finally {
+			btn.disabled = false;
+			updateSubmitButton();
+		}
+	}
+
+	// ── Drag & Drop ────────────────────────────────────────────────
+	['protocols','reports','photos'].forEach(type => {
+		const dz = document.getElementById('dz-' + type);
+
+		dz.addEventListener('dragover', e => {
+			e.preventDefault();
+			dz.classList.add('dragover');
+		});
+		dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+		dz.addEventListener('drop', e => {
+			e.preventDefault();
+			dz.classList.remove('dragover');
+			const files = Array.from(e.dataTransfer.files).filter(f => {
+				if (type === 'photos') return f.type.startsWith('image/');
+				return isPDF(f);
+			});
+			if (files.length) handleFiles({ files }, type);
+		});
+	});
+
+	// Init
+	updateSubmitButton();
+</script>
+</body>
+</html>
