@@ -191,6 +191,12 @@
       @keyframes spin { to { transform: rotate(360deg); } }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
+      .compress-info {
+          font-size: 12px; color: #10b981; margin-top: 6px;
+          display: none;
+      }
+      .compress-info.visible { display: block; }
+
       @media (max-width: 640px) {
           body { padding: 12px; }
           .container { padding: 20px; border-radius: 16px; }
@@ -251,10 +257,11 @@
 		<div class="dropzone" id="dz-photos" onclick="document.getElementById('input-photos').click()">
 			<div class="dropzone-icon">📷</div>
 			<div class="dropzone-text">Перетащите фотографии или нажмите для выбора</div>
-			<div class="dropzone-hint">Внутриротовые, профиль, фронт — любые изображения</div>
+			<div class="dropzone-hint">Фото будут автоматически сжаты до ~800KB каждое перед отправкой</div>
 		</div>
 		<input type="file" id="input-photos" accept="image/*" multiple style="display:none" onchange="handleFiles(this, 'photos')">
 		<div class="photo-grid" id="list-photos"></div>
+		<div class="compress-info" id="compress-info">✅ Фото сжаты для быстрой отправки</div>
 	</div>
 
 	<!-- Submit -->
@@ -302,8 +309,37 @@
 	const state = {
 		protocols: null,
 		reports: [],
-		photos: []
+		photos: []        // исходные File
 	};
+
+	// ── Сжатие фото перед отправкой ────────────────────────────────
+	async function compressImage(file, maxWidth = 1600, maxHeight = 1600, quality = 0.75) {
+		return new Promise((resolve, reject) => {
+			const img = new Image();
+			const url = URL.createObjectURL(file);
+			img.onload = () => {
+				URL.revokeObjectURL(url);
+				let { width, height } = img;
+				if (width > maxWidth || height > maxHeight) {
+					const ratio = Math.min(maxWidth / width, maxHeight / height);
+					width = Math.round(width * ratio);
+					height = Math.round(height * ratio);
+				}
+				const canvas = document.createElement('canvas');
+				canvas.width = width;
+				canvas.height = height;
+				const ctx = canvas.getContext('2d');
+				ctx.drawImage(img, 0, 0, width, height);
+				canvas.toBlob((blob) => {
+					if (!blob) return reject(new Error('Canvas toBlob failed'));
+					const compressed = new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() });
+					resolve(compressed);
+				}, 'image/jpeg', quality);
+			};
+			img.onerror = () => reject(new Error('Image load failed'));
+			img.src = url;
+		});
+	}
 
 	// ── Tab Switching ──────────────────────────────────────────────
 	function switchTab(tab) {
@@ -314,7 +350,7 @@
 	}
 
 	// ── File Handling ──────────────────────────────────────────────
-	function handleFiles(input, type) {
+	async function handleFiles(input, type) {
 		const files = Array.from(input.files);
 		if (!files.length) return;
 
@@ -331,10 +367,20 @@
 			renderReports();
 		}
 		else if (type === 'photos') {
-			files.filter(f => f.type.startsWith('image/')).forEach(f => {
-				if (!state.photos.find(p => p.name === f.name)) state.photos.push(f);
-			});
+			setStatus('Сжатие фотографий...');
+			for (const f of files.filter(f => f.type.startsWith('image/'))) {
+				if (state.photos.find(p => p.name === f.name)) continue;
+				try {
+					const compressed = await compressImage(f);
+					state.photos.push(compressed);
+				} catch (e) {
+					console.warn('Compress failed, using original:', e);
+					state.photos.push(f);
+				}
+			}
+			document.getElementById('compress-info').classList.add('visible');
 			renderPhotos();
+			setStatus('');
 		}
 		input.value = '';
 		updateSubmitButton();
@@ -447,22 +493,16 @@
 			resultsArea.style.display = 'block';
 
 			if (data.error) {
-				// Показываем ошибку в обеих вкладках
 				document.getElementById('body-plans').textContent = data.error;
 				document.getElementById('body-recommendations').textContent = data.error;
 				document.getElementById('block-plans').classList.add('error');
 				document.getElementById('block-recommendations').classList.add('error');
 			} else {
-				// Планы лечения
 				document.getElementById('body-plans').textContent = data.treatmentPlans || 'Нет данных';
 				document.getElementById('block-plans').classList.remove('error');
-
-				// Рекомендации доктору
 				document.getElementById('body-recommendations').textContent = data.doctorRecommendations || 'Нет данных';
 				document.getElementById('block-recommendations').classList.remove('error');
 			}
-
-			// Сбрасываем на первую вкладку
 			switchTab('plans');
 
 		} catch (e) {
@@ -484,11 +524,7 @@
 	// ── Drag & Drop ────────────────────────────────────────────────
 	['protocols','reports','photos'].forEach(type => {
 		const dz = document.getElementById('dz-' + type);
-
-		dz.addEventListener('dragover', e => {
-			e.preventDefault();
-			dz.classList.add('dragover');
-		});
+		dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
 		dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
 		dz.addEventListener('drop', e => {
 			e.preventDefault();
