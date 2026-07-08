@@ -198,7 +198,6 @@
 <body>
 <div class="container">
 	<div class="header">
-		<div class="header-icon">🦷</div>
 		<div class="header-title">Диагностика и план лечения</div>
 		<div class="header-subtitle">Загрузите фотографии, отчёты и протоколы для AI-анализа</div>
 	</div>
@@ -210,7 +209,6 @@
 			<span class="badge badge-required">Обязательно · 1 PDF</span>
 		</div>
 		<div class="dropzone" id="dz-protocols" onclick="document.getElementById('input-protocols').click()">
-			<div class="dropzone-icon">📄</div>
 			<div class="dropzone-text">Перетащите PDF с протоколами или нажмите для выбора</div>
 			<div class="dropzone-hint">PDF будет автоматически сжат перед отправкой</div>
 		</div>
@@ -225,7 +223,6 @@
 			<span class="badge badge-required">Обязательно · 2 PDF</span>
 		</div>
 		<div class="dropzone" id="dz-reports" onclick="document.getElementById('input-reports').click()">
-			<div class="dropzone-icon">📋</div>
 			<div class="dropzone-text">Перетащите 2 PDF-отчёта или нажмите для выбора</div>
 			<div class="dropzone-hint">PDF будут автоматически сжаты перед отправкой</div>
 		</div>
@@ -246,11 +243,11 @@
 		</div>
 		<input type="file" id="input-photos" accept="image/*" multiple style="display:none" onchange="handleFiles(this, 'photos')">
 		<div class="photo-grid" id="list-photos"></div>
-		<div class="compress-info" id="compress-info">✅ Файлы сжаты для быстрой отправки</div>
+		<div class="compress-info" id="compress-info">Файлы сжаты для быстрой отправки</div>
 	</div>
 
 	<button class="btn btn-primary" id="submit-btn" onclick="submitForm()">
-		🔬 Запустить анализ
+		Запустить анализ
 	</button>
 
 	<div class="progress-wrap" id="progress-wrap">
@@ -263,21 +260,21 @@
 	<div class="results-area" id="results-area" style="display:none;">
 		<div class="results-tabs">
 			<button class="results-tab active" id="tab-plans" onclick="switchTab('plans')">
-				📋 Планы лечения <span class="tab-badge">1</span>
+				Планы лечения <span class="tab-badge">1</span>
 			</button>
 			<button class="results-tab" id="tab-recommendations" onclick="switchTab('recommendations')">
-				💡 Рекомендации доктору <span class="tab-badge">2</span>
+				Рекомендации доктору <span class="tab-badge">2</span>
 			</button>
 		</div>
 		<div class="result-panel active" id="panel-plans">
 			<div class="result-block" id="block-plans">
-				<div class="result-block-title">📋 Планы лечения</div>
+				<div class="result-block-title">Планы лечения</div>
 				<div class="result-block-body" id="body-plans">Загрузка...</div>
 			</div>
 		</div>
 		<div class="result-panel" id="panel-recommendations">
 			<div class="result-block" id="block-recommendations">
-				<div class="result-block-title">💡 Клинические рекомендации доктору</div>
+				<div class="result-block-title">Клинические рекомендации доктору</div>
 				<div class="result-block-body" id="body-recommendations">Загрузка...</div>
 			</div>
 		</div>
