@@ -561,9 +561,9 @@
 			if (!state.protocols) missing.push('протоколы');
 			if (state.reports.length < 2) missing.push(`отчёты (${state.reports.length}/2)`);
 			if (state.photos.length < 1) missing.push('фото');
-			btn.innerHTML = `⏳ Добавьте: ${missing.join(', ')}`;
+			btn.innerHTML = `Добавьте: ${missing.join(', ')}`;
 		} else {
-			btn.innerHTML = '🔬 Запустить анализ';
+			btn.innerHTML = 'Запустить анализ';
 		}
 	}
 
