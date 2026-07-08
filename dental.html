@@ -5,6 +5,8 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Диагностика и план лечения</title>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown-light.min.css">
+	<script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 	<style>
@@ -167,10 +169,96 @@
           border-bottom: 2px solid #e2e8f0;
       }
       .result-block.error .result-block-title { color: #991b1b; border-color: #fecaca; }
-      .result-block-body {
-          font-size: 14px; color: #334155;
-          white-space: pre-wrap; line-height: 1.75;
+
+      /* ── Markdown rendering styles ──────────────────────────────── */
+      .markdown-body {
+          font-size: 14px !important;
+          line-height: 1.75 !important;
+          color: #334155 !important;
       }
+      .markdown-body h1 {
+          font-size: 20px !important;
+          padding-bottom: 8px;
+          border-bottom: 2px solid #e2e8f0;
+          margin-top: 24px !important;
+      }
+      .markdown-body h2 {
+          font-size: 17px !important;
+          padding-bottom: 6px;
+          border-bottom: 1px solid #e2e8f0;
+          margin-top: 20px !important;
+      }
+      .markdown-body h3 {
+          font-size: 15px !important;
+          margin-top: 16px !important;
+      }
+      .markdown-body h4 {
+          font-size: 14px !important;
+          margin-top: 14px !important;
+      }
+      .markdown-body p {
+          margin-bottom: 10px !important;
+      }
+      .markdown-body ul, .markdown-body ol {
+          padding-left: 24px !important;
+          margin-bottom: 12px !important;
+      }
+      .markdown-body li {
+          margin-bottom: 4px !important;
+      }
+      .markdown-body li > p {
+          margin-bottom: 4px !important;
+      }
+      .markdown-body strong {
+          color: #0f172a !important;
+      }
+      .markdown-body hr {
+          margin: 20px 0 !important;
+          border-color: #e2e8f0;
+      }
+      .markdown-body blockquote {
+          border-left: 4px solid #6366f1;
+          background: #eef2ff;
+          padding: 12px 16px !important;
+          margin: 12px 0 !important;
+          border-radius: 0 8px 8px 0;
+          color: #4338ca !important;
+      }
+      .markdown-body blockquote p {
+          margin-bottom: 0 !important;
+      }
+      .markdown-body code {
+          background: #f1f5f9 !important;
+          color: #475569 !important;
+          padding: 2px 6px !important;
+          border-radius: 4px;
+          font-size: 13px !important;
+      }
+      .markdown-body pre {
+          background: #1e293b !important;
+          border-radius: 10px;
+          padding: 16px !important;
+          overflow-x: auto;
+      }
+      .markdown-body pre code {
+          background: transparent !important;
+          color: #e2e8f0 !important;
+          padding: 0 !important;
+      }
+      .markdown-body table {
+          border-radius: 8px;
+          overflow: hidden;
+          margin: 12px 0 !important;
+      }
+      .markdown-body table th {
+          background: #f1f5f9;
+          font-weight: 600;
+      }
+      .markdown-body table td, .markdown-body table th {
+          border-color: #e2e8f0 !important;
+          padding: 8px 12px !important;
+      }
+
       .spinner {
           display: inline-block; width: 18px; height: 18px;
           border: 2.5px solid #fff; border-top-color: transparent;
@@ -268,13 +356,13 @@
 		<div class="result-panel active" id="panel-plans">
 			<div class="result-block" id="block-plans">
 				<div class="result-block-title">Планы лечения</div>
-				<div class="result-block-body" id="body-plans">Загрузка...</div>
+				<div class="markdown-body" id="body-plans">Загрузка...</div>
 			</div>
 		</div>
 		<div class="result-panel" id="panel-recommendations">
 			<div class="result-block" id="block-recommendations">
 				<div class="result-block-title">Клинические рекомендации доктору</div>
-				<div class="result-block-body" id="body-recommendations">Загрузка...</div>
+				<div class="markdown-body" id="body-recommendations">Загрузка...</div>
 			</div>
 		</div>
 	</div>
@@ -290,6 +378,21 @@
 		reports: [],
 		photos: []
 	};
+
+	// ── Markdown renderer ──────────────────────────────────────────
+	function renderMarkdown(text) {
+		if (!text) return '<p>Нет данных</p>';
+		try {
+			const html = marked.parse(text, {
+				breaks: true,
+				gfm: true
+			});
+			return html;
+		} catch (e) {
+			console.warn('Markdown parse failed, showing as plain text:', e);
+			return '<pre style="white-space:pre-wrap;">' + escapeHtml(text) + '</pre>';
+		}
+	}
 
 	// ── Логирование размеров ─────────────────────────────────────
 	function logFileSizes(label, files) {
@@ -364,13 +467,11 @@
 		const beforeMB = file.size / 1024 / 1024;
 		console.log(`📄 Начало обработки PDF: ${file.name} (${beforeMB.toFixed(2)} MB)`);
 
-		// Если PDF уже маленький — не трогаем
 		if (beforeMB < 1.0) {
 			console.log(`  ✅ PDF уже компактный, сжатие не требуется`);
 			return file;
 		}
 
-		// Пробуем pdf-lib (лёгкое сжатие метаданных)
 		try {
 			const arrayBuffer = await file.arrayBuffer();
 			const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer, { updateMetadata: false });
@@ -385,13 +486,11 @@
 			const libMB = libCompressed.size / 1024 / 1024;
 			console.log(`  📄 pdf-lib: ${beforeMB.toFixed(2)} MB → ${libMB.toFixed(2)} MB`);
 
-			// Если pdf-lib сжал достаточно — берём его результат
 			if (libMB < beforeMB * 0.85) {
 				console.log(`  ✅ Используем pdf-lib результат`);
 				return libCompressed;
 			}
 
-			// Иначе — агрессивный рендеринг для тяжёлых PDF
 			console.log(`  🔄 Пробуем canvas-рендеринг...`);
 			const renderResult = await renderPDFToImages(file);
 			if (renderResult && renderResult.size < file.size * 0.9) {
@@ -399,7 +498,6 @@
 				return renderResult;
 			}
 
-			// Если всё ухудшило — оригинал
 			console.log(`  ⚠️ Сжатие не дало эффекта, используем оригинал`);
 			return file;
 
@@ -513,13 +611,13 @@
 	function renderProtocols() {
 		const el = document.getElementById('list-protocols');
 		if (!state.protocols) { el.innerHTML = ''; return; }
-		el.innerHTML = `<span class="file-chip">📄 ${escapeHtml(state.protocols.name)} <span class="size">${formatSize(state.protocols.size)}</span> <span class="remove" onclick="removeFile('protocols')">×</span></span>`;
+		el.innerHTML = `<span class="file-chip">${escapeHtml(state.protocols.name)} <span class="size">${formatSize(state.protocols.size)}</span> <span class="remove" onclick="removeFile('protocols')">×</span></span>`;
 	}
 
 	function renderReports() {
 		const el = document.getElementById('list-reports');
 		el.innerHTML = state.reports.map((f, i) =>
-			`<span class="file-chip">📋 ${escapeHtml(f.name)} <span class="size">${formatSize(f.size)}</span> <span class="remove" onclick="removeFile('reports', ${i})">×</span></span>`
+			`<span class="file-chip">${escapeHtml(f.name)} <span class="size">${formatSize(f.size)}</span> <span class="remove" onclick="removeFile('reports', ${i})">×</span></span>`
 		).join('');
 	}
 
@@ -561,9 +659,9 @@
 			if (!state.protocols) missing.push('протоколы');
 			if (state.reports.length < 2) missing.push(`отчёты (${state.reports.length}/2)`);
 			if (state.photos.length < 1) missing.push('фото');
-			btn.innerHTML = `Добавьте: ${missing.join(', ')}`;
+			btn.innerHTML = `⏳ Добавьте: ${missing.join(', ')}`;
 		} else {
-			btn.innerHTML = 'Запустить анализ';
+			btn.innerHTML = '🔬 Запустить анализ';
 		}
 	}
 
@@ -614,14 +712,14 @@
 			setStatus('');
 			resultsArea.style.display = 'block';
 			if (data.error) {
-				document.getElementById('body-plans').textContent = data.error;
-				document.getElementById('body-recommendations').textContent = data.error;
+				document.getElementById('body-plans').innerHTML = renderMarkdown(data.error);
+				document.getElementById('body-recommendations').innerHTML = renderMarkdown(data.error);
 				document.getElementById('block-plans').classList.add('error');
 				document.getElementById('block-recommendations').classList.add('error');
 			} else {
-				document.getElementById('body-plans').textContent = data.treatmentPlans || 'Нет данных';
+				document.getElementById('body-plans').innerHTML = renderMarkdown(data.treatmentPlans);
 				document.getElementById('block-plans').classList.remove('error');
-				document.getElementById('body-recommendations').textContent = data.doctorRecommendations || 'Нет данных';
+				document.getElementById('body-recommendations').innerHTML = renderMarkdown(data.doctorRecommendations);
 				document.getElementById('block-recommendations').classList.remove('error');
 			}
 			switchTab('plans');
@@ -630,8 +728,8 @@
 			setStatus('');
 			resultsArea.style.display = 'block';
 			const errText = e.message + '\n\nПроверьте подключение к интернету и доступность API.';
-			document.getElementById('body-plans').textContent = errText;
-			document.getElementById('body-recommendations').textContent = errText;
+			document.getElementById('body-plans').innerHTML = renderMarkdown(errText);
+			document.getElementById('body-recommendations').innerHTML = renderMarkdown(errText);
 			document.getElementById('block-plans').classList.add('error');
 			document.getElementById('block-recommendations').classList.add('error');
 			switchTab('plans');
